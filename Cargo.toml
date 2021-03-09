@@ -1,0 +1,20 @@
+[package]
+name = "burrito-cloud-exp"
+version = "0.1.0"
+authors = ["Akshay Narayan <akshayn@mit.edu>"]
+edition = "2018"
+
+[dependencies]
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "fs", "macros", "io-util"] }
+futures-util = "0.3"
+structopt = "0.3"
+color-eyre = "0.5"
+tracing = "0.1"
+tracing-futures = "0.2"
+tracing-error = "0.1"
+tracing-subscriber = "0.2"
+serde = { version = "1", features = ["derive"]}
+serde_json = "1"
+#tsunami = "0.11"
+tsunami = { path = "../tsunami" }
+openssh = "0.8"
