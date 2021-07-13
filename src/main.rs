@@ -209,41 +209,61 @@ async fn do_exp(
     }
 
     tokio::fs::write(format!("{}.log", prov), out.stdout).await?;
-
     info!("done, getting files");
     let mut sftp = ssh.sftp();
 
-    let inter_req_times = [0, 25, 50, 75, 100];
-    //let num_receivers = [1, 2, 5, 10];
-    let num_receivers = [1];
+    //let inter_req_times = [0, 25, 50, 75, 100];
+    let inter_req_times = [75];
+    let num_receivers = [1, 2, 5, 10];
     let num_groups = [0, 1, 2, 5, 10]; // + be
+    let batch_sizes = [1, 5, 10];
+    let batch_types = ["loop", "opt"];
+    let impls = ["client", "service"];
+
     let mut fnames = vec![];
     for inter_req in &inter_req_times[..] {
-        for rcvrs in &num_receivers[..] {
-            fnames.push(format!(
-                "exp-{}-be-{}ms-{}rcvrs-client.data",
-                prov, inter_req, rcvrs
-            ));
-            for grps in &num_groups[..] {
-                fnames.push(format!(
-                    "exp-{}-ord:{}g-{}ms-{}rcvrs-client.data",
-                    prov, grps, inter_req, rcvrs
-                ));
+        for batch_size in &batch_sizes[..] {
+            for batch_type in &batch_types[..] {
+                for rcvrs in &num_receivers[..] {
+                    for imp in impls {
+                        fnames.push(format!(
+                            "exp-{}-be-{}ms-{}rcvrs-{}batch-{}-{}.data",
+                            prov, inter_req, rcvrs, batch_size, batch_type, imp
+                        ));
+                    }
+
+                    for grps in &num_groups[..] {
+                        for imp in impls {
+                            fnames.push(format!(
+                                "exp-{}-ord:{}g-{}ms-{}rcvrs-{}batch-{}-{}.data",
+                                prov, grps, inter_req, rcvrs, batch_size, batch_type, imp
+                            ));
+                        }
+                    }
+                }
             }
         }
     }
+
     //let fnames = ["transition-25ms-aws-ord5g.data"];
+    let tot = fnames.len();
+    let mut gotten = 0;
     for fname in &fnames[..] {
         let f = sftp.read_from(&fname).await;
         if let Err(err) = f {
+            // the file not existing is not necessarily a problem, it's possible that experiment
+            // was not run this time.
             warn!(?err, ?fname, "file error");
         } else {
             let mut f = f.unwrap();
             let mut local = tokio::fs::File::create(&fname).await?;
             tokio::io::copy(&mut f, &mut local).await?;
             f.close().await?;
+            gotten += 1;
         }
     }
+
+    info!(considered = ?tot, ?gotten, "done getting files");
 
     wait_for_continue();
     Ok(())
